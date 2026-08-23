@@ -56,6 +56,8 @@ export default function AdminPage() {
     updatePerfume,
     deletePerfume,
     logoutAdmin,
+    isLoading,
+    error: storeError,
     resetPerfumes
   } = usePerfumeStore();
   const [selectedSlug, setSelectedSlug] = useState("");
@@ -110,19 +112,19 @@ export default function AdminPage() {
   }
 
   // Guarda un perfume nuevo o aplica cambios sobre uno ya existente.
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
 
     try {
       if (selectedPerfume) {
-        const updated = updatePerfume(selectedPerfume.slug, form);
+        const updated = await updatePerfume(selectedPerfume.slug, form);
         setSelectedSlug(updated.slug);
         setForm(perfumeToForm(updated));
         setMessage("Perfume actualizado.");
         return;
       }
 
-      const created = addPerfume(form);
+      const created = await addPerfume(form);
       setSelectedSlug(created.slug);
       setForm(perfumeToForm(created));
       setMessage("Perfume creado.");
@@ -132,12 +134,28 @@ export default function AdminPage() {
   }
 
   // Elimina un perfume del catalogo y resetea el formulario si estaba abierto.
-  function handleDelete(slug) {
-    deletePerfume(slug);
-    if (selectedSlug === slug) {
-      handleNew();
+  async function handleDelete(slug) {
+    try {
+      await deletePerfume(slug);
+      if (selectedSlug === slug) {
+        handleNew();
+      }
+      setMessage("Perfume eliminado.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "No se pudo eliminar el perfume.");
     }
-    setMessage("Perfume eliminado.");
+  }
+
+  // Restaura el catalogo inicial y refleja el resultado de la operacion asincrona.
+  async function handleReset() {
+    try {
+      await resetPerfumes();
+      setSelectedSlug("");
+      setForm(emptyForm);
+      setMessage("Catalogo restaurado.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "No se pudo restaurar el catalogo.");
+    }
   }
 
   // Cierra la sesion administrativa y vuelve a la portada publica.
@@ -162,8 +180,13 @@ export default function AdminPage() {
             <button className="button" type="button" onClick={handleNew}>
               Nuevo perfume
             </button>
-            <button className="button" type="button" onClick={resetPerfumes}>
-              Restaurar base
+            <button
+              className="button"
+              type="button"
+              onClick={handleReset}
+              disabled={isLoading}
+            >
+              {isLoading ? "Procesando..." : "Restaurar base"}
             </button>
             <button className="button light" type="button" onClick={handleLogout}>
               Cerrar sesion
@@ -185,7 +208,11 @@ export default function AdminPage() {
                     <button type="button" onClick={() => handleEdit(perfume.slug)}>
                       Editar
                     </button>
-                    <button type="button" onClick={() => handleDelete(perfume.slug)}>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(perfume.slug)}
+                      disabled={isLoading}
+                    >
                       Borrar
                     </button>
                   </div>
@@ -197,7 +224,8 @@ export default function AdminPage() {
           <section className="admin-editor">
             <h2>{selectedPerfume ? "Editar perfume" : "Crear perfume"}</h2>
             {message ? <p className="admin-message">{message}</p> : null}
-            <form className="admin-form-grid" onSubmit={handleSubmit}>
+            {storeError ? <p className="admin-error">{storeError}</p> : null}
+            <form className="admin-form-grid" onSubmit={handleSubmit} aria-busy={isLoading}>
               <label className="field">
                 <span>Nombre</span>
                 <input
@@ -362,8 +390,8 @@ export default function AdminPage() {
                 />
               </label>
               <div className="field-full admin-submit-row">
-                <button className="button light" type="submit">
-                  {selectedPerfume ? "Guardar cambios" : "Crear perfume"}
+                <button className="button light" type="submit" disabled={isLoading}>
+                  {isLoading ? "Guardando..." : selectedPerfume ? "Guardar cambios" : "Crear perfume"}
                 </button>
               </div>
             </form>

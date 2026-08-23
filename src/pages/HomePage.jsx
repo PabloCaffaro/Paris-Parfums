@@ -11,7 +11,7 @@ import { formatPrice, normalizeText } from "../utils/text";
 // Renderiza la portada con destacado, buscador, filtros y catalogo interactivo.
 export default function HomePage() {
   useRevealOnScroll();
-  const { featuredPerfume, perfumes } = usePerfumeStore();
+  const { featuredPerfume, perfumes, isLoading, error } = usePerfumeStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOccasion, setSelectedOccasion] = useState("all");
   const [selectedFamily, setSelectedFamily] = useState("all");
@@ -300,14 +300,26 @@ export default function HomePage() {
           </details>
         </div>
 
-        {searchState.searched && !searchState.hasResults ? (
+        {isLoading ? (
+          <p className="catalog-hint reveal-on-scroll visible" role="status">
+            Cargando catalogo...
+          </p>
+        ) : null}
+
+        {error ? (
+          <p className="catalog-hint catalog-hint-alert reveal-on-scroll visible" role="alert">
+            {error}
+          </p>
+        ) : null}
+
+        {!isLoading && searchState.searched && !searchState.hasResults ? (
           <p className="catalog-hint catalog-hint-alert reveal-on-scroll visible">
             No encontramos perfumes con ese nombre. Abajo te mostramos perfumes disponibles
             que te pueden interesar.
           </p>
         ) : null}
 
-        {filteredBySelectors.length === 0 ? (
+        {!isLoading && filteredBySelectors.length === 0 ? (
           <p className="catalog-hint catalog-hint-alert reveal-on-scroll visible">
             No encontramos perfumes con esos filtros. Proba ampliando el rango o cambiando las
             opciones seleccionadas.
