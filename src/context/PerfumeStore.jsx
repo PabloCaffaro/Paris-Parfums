@@ -1,46 +1,15 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ADMIN_INACTIVITY_TIMEOUT_MS } from "../config/security";
 import { defaultPerfumes } from "../data/perfumes";
+import { localPerfumeRepository } from "../repositories/localPerfumeRepository";
+import { createPerfumeService } from "../services/perfumeService";
 import { ADMIN_LOGOUT_REASON_KEY } from "../utils/adminSecurity";
-import { validateAndNormalizePerfumeInput } from "../utils/perfumeValidation";
 
-const PERFUMES_KEY = "paris-parfums-perfumes";
 const SESSION_KEY = "paris-parfums-admin-session";
 const LAST_ACTIVITY_KEY = "paris-parfums-admin-last-activity";
 
 const PerfumeStoreContext = createContext(null);
-
-// Completa y corrige datos persistidos para mantener compatibilidad entre versiones.
-function hydratePerfume(perfume) {
-  const fallback =
-    defaultPerfumes.find((item) => item.slug === perfume.slug) ||
-    defaultPerfumes.find((item) => item.name === perfume.name) ||
-    {};
-  const notes = Array.isArray(perfume.notes)
-    ? perfume.notes
-    : String(perfume.notes ?? fallback.notes?.join(", ") ?? "")
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean);
-
-  const occasions = Array.isArray(perfume.occasions)
-    ? perfume.occasions
-    : String(perfume.occasions ?? fallback.occasions?.join(", ") ?? "")
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean);
-
-  return {
-    ...fallback,
-    ...perfume,
-    imageUrl: perfume.imageUrl ?? "",
-    price: Number.isFinite(Number(perfume.price))
-      ? Number(perfume.price)
-      : Number(fallback.price) || 0,
-    notes,
-    occasions
-  };
-}
+const perfumeService = createPerfumeService(localPerfumeRepository);
 
 // Provee el catalogo, la sesion admin y las operaciones de gestion a toda la app.
 export function PerfumeStoreProvider({ children }) {
@@ -63,24 +32,11 @@ export function PerfumeStoreProvider({ children }) {
   }
 
   useEffect(() => {
-    const storedPerfumes = window.localStorage.getItem(PERFUMES_KEY);
     const storedSession = window.sessionStorage.getItem(SESSION_KEY);
 
-    if (storedPerfumes) {
-      try {
-        const parsed = JSON.parse(storedPerfumes).map(hydratePerfume);
-        setPerfumes(parsed);
-      } catch {
-        setPerfumes(defaultPerfumes);
-      }
-    }
-
+    setPerfumes(perfumeService.list());
     setIsAdminAuthenticated(storedSession === "true");
   }, []);
-
-  useEffect(() => {
-    window.localStorage.setItem(PERFUMES_KEY, JSON.stringify(perfumes));
-  }, [perfumes]);
 
   useEffect(() => {
     if (!isAdminAuthenticated) {
@@ -127,22 +83,24 @@ export function PerfumeStoreProvider({ children }) {
       isAdminAuthenticated,
       getPerfumeBySlug: (slug) => perfumes.find((perfume) => perfume.slug === slug),
       addPerfume: (input) => {
-        const normalized = validateAndNormalizePerfumeInput(input);
+        const normalized = perfumeService.create(input);
         setPerfumes((current) => [...current, normalized]);
         return normalized;
       },
       updatePerfume: (slug, input) => {
-        const normalized = validateAndNormalizePerfumeInput(input);
+        const normalized = perfumeService.update(slug, input);
         setPerfumes((current) =>
           current.map((perfume) => (perfume.slug === slug ? normalized : perfume))
         );
         return normalized;
       },
       deletePerfume: (slug) => {
+        perfumeService.remove(slug);
         setPerfumes((current) => current.filter((perfume) => perfume.slug !== slug));
       },
       resetPerfumes: () => {
-        setPerfumes(defaultPerfumes);
+        const restoredPerfumes = perfumeService.reset();
+        setPerfumes(restoredPerfumes);
       },
       loginAdmin: () => {
         window.sessionStorage.setItem(SESSION_KEY, "true");
