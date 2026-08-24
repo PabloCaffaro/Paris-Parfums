@@ -2,7 +2,7 @@ import {
   ALLOWED_IMAGE_MIME_TYPES,
   MAX_IMAGE_DIMENSION,
   MAX_IMAGE_UPLOAD_SIZE_BYTES
-} from "../config/security";
+} from "../config/security.js";
 
 // Verifica que una URL de imagen sea segura para renderizarse en el frontend.
 export function validateImageUrl(url) {
