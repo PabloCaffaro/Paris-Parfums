@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { validateImageUrl } from "../src/utils/image.js";
+import { MAX_IMAGE_STORED_SIZE_BYTES } from "../src/config/security.js";
+import { getDataUrlSizeBytes, validateImageUrl } from "../src/utils/image.js";
 import { slugify } from "../src/utils/slugify.js";
 import { formatPrice, normalizeText } from "../src/utils/text.js";
 
@@ -37,6 +38,21 @@ describe("validateImageUrl", () => {
   it("acepta data URLs de imagen permitidas", () => {
     const dataUrl = "data:image/webp;base64,AAAA";
     assert.equal(validateImageUrl(dataUrl), dataUrl);
+  });
+
+  it("calcula el peso del contenido base64", () => {
+    assert.equal(getDataUrlSizeBytes("data:image/webp;base64,AAAA"), 3);
+  });
+
+  it("rechaza data URLs demasiado pesadas para localStorage", () => {
+    const oversizedBase64 = "A".repeat(
+      Math.ceil((MAX_IMAGE_STORED_SIZE_BYTES * 4) / 3) + 8
+    );
+
+    assert.throws(
+      () => validateImageUrl(`data:image/webp;base64,${oversizedBase64}`),
+      /demasiado pesada/i
+    );
   });
 
   for (const url of [

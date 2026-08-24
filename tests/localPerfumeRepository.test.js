@@ -73,6 +73,23 @@ describe("localPerfumeRepository", () => {
     assert.deepEqual(localPerfumeRepository.list(), []);
   });
 
+  it("explica cuando localStorage se queda sin espacio", () => {
+    const quotaError = new DOMException("Storage full", "QuotaExceededError");
+    window.localStorage = {
+      getItem() {
+        return "[]";
+      },
+      setItem() {
+        throw quotaError;
+      }
+    };
+
+    assert.throws(
+      () => localPerfumeRepository.create({ slug: "nuevo" }),
+      /no queda espacio/i
+    );
+  });
+
   it("restaura y persiste el catalogo inicial", () => {
     window.localStorage.setItem(PERFUMES_KEY, "[]");
 
