@@ -1,4 +1,4 @@
-import { defaultPerfumes } from "../data/perfumes";
+import { defaultPerfumes } from "../data/perfumes.js";
 
 const PERFUMES_KEY = "paris-parfums-perfumes";
 

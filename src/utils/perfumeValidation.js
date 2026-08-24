@@ -1,6 +1,6 @@
-import { FIELD_LIMITS } from "../config/security";
-import { validateImageUrl } from "./image";
-import { slugify } from "./slugify";
+import { FIELD_LIMITS } from "../config/security.js";
+import { validateImageUrl } from "./image.js";
+import { slugify } from "./slugify.js";
 
 // Limpia texto libre, recorta longitud y remueve caracteres no deseados.
 function sanitizeText(value, maxLength) {
