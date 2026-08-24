@@ -8,10 +8,12 @@ import { formatPrice } from "../utils/text";
 
 // Muestra la ficha detallada de un perfume a partir de su slug en la URL.
 export default function PerfumePage() {
-  useRevealOnScroll();
   const { slug } = useParams();
   const { getPerfumeBySlug, isLoading, error } = usePerfumeStore();
   const perfume = getPerfumeBySlug(slug);
+  const revealKey = `${isLoading}:${error}:${perfume?.slug ?? slug}`;
+
+  useRevealOnScroll(revealKey);
 
   if (isLoading || (error && !perfume)) {
     const hasError = !isLoading && Boolean(error);

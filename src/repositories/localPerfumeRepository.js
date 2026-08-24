@@ -53,7 +53,18 @@ function readPerfumes() {
 }
 
 function writePerfumes(perfumes) {
-  window.localStorage.setItem(PERFUMES_KEY, JSON.stringify(perfumes));
+  try {
+    window.localStorage.setItem(PERFUMES_KEY, JSON.stringify(perfumes));
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "QuotaExceededError") {
+      throw new Error(
+        "No queda espacio en este navegador para guardar mas imagenes. Quita una foto o usa una imagen por URL."
+      );
+    }
+
+    throw error;
+  }
+
   return perfumes;
 }
 
