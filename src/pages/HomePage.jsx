@@ -11,14 +11,21 @@ import { formatPrice, normalizeText } from "../utils/text";
 // Renderiza la portada con destacado, buscador, filtros y catalogo interactivo.
 export default function HomePage() {
   useRevealOnScroll();
-  const { featuredPerfume, perfumes } = usePerfumeStore();
+  const { featuredPerfume, perfumes, isLoading, error } = usePerfumeStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOccasion, setSelectedOccasion] = useState("all");
   const [selectedFamily, setSelectedFamily] = useState("all");
   const [selectedIntensity, setSelectedIntensity] = useState("all");
   const [selectedConcentration, setSelectedConcentration] = useState("all");
   const [maxPrice, setMaxPrice] = useState(null);
+  const [activeFeaturedIndex, setActiveFeaturedIndex] = useState(0);
+  const [isCarouselPaused, setIsCarouselPaused] = useState(false);
   const deferredSearchTerm = useDeferredValue(searchTerm);
+  const featuredPerfumes = useMemo(() => perfumes.slice(0, 4), [perfumes]);
+  const activeFeaturedPerfume =
+    featuredPerfumes[activeFeaturedIndex] ?? featuredPerfume;
+
+  const featuredCount = featuredPerfumes.length;
 
   const families = useMemo(
     () => ["all", ...new Set(perfumes.map((perfume) => perfume.family))],
@@ -52,6 +59,31 @@ export default function HomePage() {
       return current;
     });
   }, [sliderMaxPrice]);
+
+  useEffect(() => {
+    if (activeFeaturedIndex < featuredCount) return;
+    setActiveFeaturedIndex(0);
+  }, [activeFeaturedIndex, featuredCount]);
+
+  useEffect(() => {
+    if (isCarouselPaused || featuredCount <= 1) return undefined;
+
+    const timer = window.setTimeout(() => {
+      setActiveFeaturedIndex((currentIndex) => (currentIndex + 1) % featuredCount);
+    }, 6000);
+
+    return () => window.clearTimeout(timer);
+  }, [activeFeaturedIndex, featuredCount, isCarouselPaused]);
+
+  function showPreviousFeatured() {
+    setActiveFeaturedIndex((currentIndex) =>
+      (currentIndex - 1 + featuredCount) % featuredCount
+    );
+  }
+
+  function showNextFeatured() {
+    setActiveFeaturedIndex((currentIndex) => (currentIndex + 1) % featuredCount);
+  }
 
   const effectiveMaxPrice = maxPrice === null ? sliderMaxPrice : Math.min(maxPrice, sliderMaxPrice);
   const sliderProgress = sliderMaxPrice > 0 ? (effectiveMaxPrice / sliderMaxPrice) * 100 : 0;
@@ -150,17 +182,67 @@ export default function HomePage() {
 
   return (
     <Layout>
-      <section className="hero">
+      <section className="hero hero-carousel">
+        <p className="eyebrow hero-mobile-eyebrow">Fragancias destacadas</p>
         <div className="content reveal-on-scroll" data-reveal>
-          <p className="eyebrow">Fragancia destacada</p>
-          <h1>
-            {featuredPerfume.name} deja una estela intensa, elegante y dificil de olvidar.
-          </h1>
-          <p className="summary">
-            {featuredPerfume.heroDescription} La idea de esta portada es que el texto principal
-            cuente exactamente lo que transmite la fragancia que se ve a la derecha:
-            profundidad, lujo y caracter.
-          </p>
+          <p className="eyebrow hero-desktop-eyebrow">Fragancias destacadas</p>
+          <div
+            key={activeFeaturedPerfume.slug}
+            className="hero-slide-copy"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            <h1>
+              {activeFeaturedPerfume.name} deja una estela intensa, elegante y dificil de
+              olvidar.
+            </h1>
+            <p className="summary">{activeFeaturedPerfume.heroDescription}</p>
+          </div>
+
+          {featuredCount > 1 && (
+            <div className="hero-carousel-controls" aria-label="Carrusel de fragancias destacadas">
+              <button
+                type="button"
+                className="carousel-arrow"
+                onClick={showPreviousFeatured}
+                aria-label="Ver fragancia anterior"
+              >
+                ←
+              </button>
+              <span className="carousel-counter" aria-hidden="true">
+                {String(activeFeaturedIndex + 1).padStart(2, "0")} / {String(featuredCount).padStart(2, "0")}
+              </span>
+              <div className="carousel-dots" aria-label="Elegir fragancia">
+                {featuredPerfumes.map((perfume, index) => (
+                  <button
+                    key={perfume.slug}
+                    type="button"
+                    className={`carousel-dot${index === activeFeaturedIndex ? " active" : ""}`}
+                    onClick={() => setActiveFeaturedIndex(index)}
+                    aria-label={`Mostrar ${perfume.name}`}
+                    aria-current={index === activeFeaturedIndex ? "true" : undefined}
+                  />
+                ))}
+              </div>
+              <button
+                type="button"
+                className="carousel-arrow"
+                onClick={showNextFeatured}
+                aria-label="Ver fragancia siguiente"
+              >
+                →
+              </button>
+              <button
+                type="button"
+                className="carousel-toggle"
+                onClick={() => setIsCarouselPaused((current) => !current)}
+                aria-label={isCarouselPaused ? "Reanudar carrusel" : "Pausar carrusel"}
+              >
+                {isCarouselPaused ? "Reanudar" : "Pausar"}
+              </button>
+            </div>
+          )}
+
           <div className="footer-row">
             <a className="button light" href="#catalogo">
               Ver perfumes
@@ -177,22 +259,21 @@ export default function HomePage() {
         </div>
 
         <aside className="panel reveal-on-scroll" data-reveal>
-          <Link
-            to={`/perfumes/${featuredPerfume.slug}`}
-            className="featured-media-link"
-            aria-label={`Ver detalle de ${featuredPerfume.name}`}
-          >
-            <PerfumeMedia perfume={featuredPerfume} />
-          </Link>
-          <h2>{featuredPerfume.name}</h2>
-          <p>
-            Una composicion intensa y elegante, pensada para dejar una estela marcada con un
-            perfil sobrio y refinado.
-          </p>
-          <div className="notes">
-            {featuredPerfume.notes.map((note) => (
-              <span key={note}>{note}</span>
-            ))}
+          <div key={activeFeaturedPerfume.slug} className="hero-slide-media">
+            <Link
+              to={`/perfumes/${activeFeaturedPerfume.slug}`}
+              className="featured-media-link"
+              aria-label={`Ver detalle de ${activeFeaturedPerfume.name}`}
+            >
+              <PerfumeMedia perfume={activeFeaturedPerfume} />
+            </Link>
+            <h2>{activeFeaturedPerfume.name}</h2>
+            <p>{activeFeaturedPerfume.shortDescription}</p>
+            <div className="notes">
+              {activeFeaturedPerfume.notes.map((note) => (
+                <span key={note}>{note}</span>
+              ))}
+            </div>
           </div>
         </aside>
       </section>
@@ -300,14 +381,26 @@ export default function HomePage() {
           </details>
         </div>
 
-        {searchState.searched && !searchState.hasResults ? (
+        {isLoading ? (
+          <p className="catalog-hint reveal-on-scroll visible" role="status">
+            Cargando catalogo...
+          </p>
+        ) : null}
+
+        {error ? (
+          <p className="catalog-hint catalog-hint-alert reveal-on-scroll visible" role="alert">
+            {error}
+          </p>
+        ) : null}
+
+        {!isLoading && searchState.searched && !searchState.hasResults ? (
           <p className="catalog-hint catalog-hint-alert reveal-on-scroll visible">
             No encontramos perfumes con ese nombre. Abajo te mostramos perfumes disponibles
             que te pueden interesar.
           </p>
         ) : null}
 
-        {filteredBySelectors.length === 0 ? (
+        {!isLoading && filteredBySelectors.length === 0 ? (
           <p className="catalog-hint catalog-hint-alert reveal-on-scroll visible">
             No encontramos perfumes con esos filtros. Proba ampliando el rango o cambiando las
             opciones seleccionadas.
