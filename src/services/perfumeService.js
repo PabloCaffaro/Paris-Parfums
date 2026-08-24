@@ -1,4 +1,4 @@
-import { validateAndNormalizePerfumeInput } from "../utils/perfumeValidation";
+import { validateAndNormalizePerfumeInput } from "../utils/perfumeValidation.js";
 
 // Reune las reglas del catalogo y delega su persistencia al repositorio recibido.
 export function createPerfumeService(repository) {

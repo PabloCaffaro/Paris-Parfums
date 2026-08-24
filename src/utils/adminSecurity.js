@@ -1,7 +1,7 @@
 import {
   ADMIN_LOGIN_LOCK_MS,
   ADMIN_MAX_LOGIN_ATTEMPTS
-} from "../config/security";
+} from "../config/security.js";
 
 const ATTEMPTS_KEY = "paris-parfums-admin-attempts";
 export const ADMIN_LOGOUT_REASON_KEY = "paris-parfums-admin-logout-reason";
