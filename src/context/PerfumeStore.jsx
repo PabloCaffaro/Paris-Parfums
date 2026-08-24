@@ -1,4 +1,12 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react";
 import { ADMIN_INACTIVITY_TIMEOUT_MS } from "../config/security";
 import { defaultPerfumes } from "../data/perfumes";
 import { localPerfumeRepository } from "../repositories/localPerfumeRepository";
@@ -15,6 +23,8 @@ const perfumeService = createPerfumeService(localPerfumeRepository);
 export function PerfumeStoreProvider({ children }) {
   const [perfumes, setPerfumes] = useState(defaultPerfumes);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
   const activityTimerRef = useRef(null);
 
   // Limpia la sesion admin y opcionalmente guarda el motivo del cierre.
@@ -31,11 +41,53 @@ export function PerfumeStoreProvider({ children }) {
     setIsAdminAuthenticated(false);
   }
 
+  // Ejecuta una operacion del catalogo y mantiene un estado comun de carga y error.
+  const runPerfumeOperation = useCallback(async (operation) => {
+    setIsLoading(true);
+    setError("");
+
+    try {
+      return await operation();
+    } catch (caughtError) {
+      const message =
+        caughtError instanceof Error
+          ? caughtError.message
+          : "No se pudo completar la operacion del catalogo.";
+      setError(message);
+      throw caughtError instanceof Error ? caughtError : new Error(message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
+    let isActive = true;
     const storedSession = window.sessionStorage.getItem(SESSION_KEY);
 
-    setPerfumes(perfumeService.list());
     setIsAdminAuthenticated(storedSession === "true");
+    setIsLoading(true);
+    setError("");
+
+    perfumeService
+      .list()
+      .then((storedPerfumes) => {
+        if (isActive) setPerfumes(storedPerfumes);
+      })
+      .catch((caughtError) => {
+        if (!isActive) return;
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "No se pudo cargar el catalogo."
+        );
+      })
+      .finally(() => {
+        if (isActive) setIsLoading(false);
+      });
+
+    return () => {
+      isActive = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -81,27 +133,34 @@ export function PerfumeStoreProvider({ children }) {
       perfumes,
       featuredPerfume,
       isAdminAuthenticated,
+      isLoading,
+      error,
       getPerfumeBySlug: (slug) => perfumes.find((perfume) => perfume.slug === slug),
-      addPerfume: (input) => {
-        const normalized = perfumeService.create(input);
-        setPerfumes((current) => [...current, normalized]);
-        return normalized;
-      },
-      updatePerfume: (slug, input) => {
-        const normalized = perfumeService.update(slug, input);
-        setPerfumes((current) =>
-          current.map((perfume) => (perfume.slug === slug ? normalized : perfume))
-        );
-        return normalized;
-      },
-      deletePerfume: (slug) => {
-        perfumeService.remove(slug);
-        setPerfumes((current) => current.filter((perfume) => perfume.slug !== slug));
-      },
-      resetPerfumes: () => {
-        const restoredPerfumes = perfumeService.reset();
-        setPerfumes(restoredPerfumes);
-      },
+      addPerfume: (input) =>
+        runPerfumeOperation(async () => {
+          const normalized = await perfumeService.create(input);
+          setPerfumes((current) => [...current, normalized]);
+          return normalized;
+        }),
+      updatePerfume: (slug, input) =>
+        runPerfumeOperation(async () => {
+          const normalized = await perfumeService.update(slug, input);
+          setPerfumes((current) =>
+            current.map((perfume) => (perfume.slug === slug ? normalized : perfume))
+          );
+          return normalized;
+        }),
+      deletePerfume: (slug) =>
+        runPerfumeOperation(async () => {
+          await perfumeService.remove(slug);
+          setPerfumes((current) => current.filter((perfume) => perfume.slug !== slug));
+        }),
+      resetPerfumes: () =>
+        runPerfumeOperation(async () => {
+          const restoredPerfumes = await perfumeService.reset();
+          setPerfumes(restoredPerfumes);
+          return restoredPerfumes;
+        }),
       loginAdmin: () => {
         window.sessionStorage.setItem(SESSION_KEY, "true");
         window.sessionStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
@@ -112,7 +171,7 @@ export function PerfumeStoreProvider({ children }) {
         clearAdminSession();
       }
     };
-  }, [isAdminAuthenticated, perfumes]);
+  }, [error, isAdminAuthenticated, isLoading, perfumes, runPerfumeOperation]);
 
   return (
     <PerfumeStoreContext.Provider value={value}>{children}</PerfumeStoreContext.Provider>

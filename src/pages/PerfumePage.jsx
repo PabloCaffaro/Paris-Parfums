@@ -10,8 +10,39 @@ import { formatPrice } from "../utils/text";
 export default function PerfumePage() {
   useRevealOnScroll();
   const { slug } = useParams();
-  const { getPerfumeBySlug } = usePerfumeStore();
+  const { getPerfumeBySlug, isLoading, error } = usePerfumeStore();
   const perfume = getPerfumeBySlug(slug);
+
+  if (isLoading || (error && !perfume)) {
+    const hasError = !isLoading && Boolean(error);
+
+    return (
+      <Layout>
+        <section className="detail-layout">
+          <div
+            className="detail-copy reveal-on-scroll visible"
+            role={hasError ? "alert" : "status"}
+          >
+            <p className="eyebrow">{hasError ? "Error de catalogo" : "Cargando"}</p>
+            <h1>
+              {hasError
+                ? "No pudimos cargar esta fragancia."
+                : "Estamos preparando el detalle del perfume."}
+            </h1>
+            <p className="summary">{hasError ? error : "Esto puede demorar un instante."}</p>
+            {hasError ? (
+              <div className="footer-row">
+                <Link className="button light" to="/">
+                  Volver al inicio
+                </Link>
+              </div>
+            ) : null}
+          </div>
+        </section>
+        <ContactFooter />
+      </Layout>
+    );
+  }
 
   if (!perfume) {
     return (

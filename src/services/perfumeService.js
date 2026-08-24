@@ -3,25 +3,25 @@ import { validateAndNormalizePerfumeInput } from "../utils/perfumeValidation";
 // Reune las reglas del catalogo y delega su persistencia al repositorio recibido.
 export function createPerfumeService(repository) {
   return {
-    list() {
+    async list() {
       return repository.list();
     },
 
-    create(input) {
+    async create(input) {
       const perfume = validateAndNormalizePerfumeInput(input);
       return repository.create(perfume);
     },
 
-    update(slug, input) {
+    async update(slug, input) {
       const perfume = validateAndNormalizePerfumeInput(input);
       return repository.update(slug, perfume);
     },
 
-    remove(slug) {
-      repository.remove(slug);
+    async remove(slug) {
+      return repository.remove(slug);
     },
 
-    reset() {
+    async reset() {
       return repository.reset();
     }
   };
