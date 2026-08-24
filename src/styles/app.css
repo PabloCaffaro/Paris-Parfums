@@ -318,7 +318,8 @@ h1 {
   width: 210px;
   height: 310px;
   margin: 68px auto 34px;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
   border-radius: 42px 42px 26px 26px;
   border: 1px solid rgba(255, 255, 255, 0.22);
   box-shadow:
@@ -714,6 +715,42 @@ h1 {
 
 .field input[type="file"] {
   padding: 10px 12px;
+}
+
+.field-hint {
+  display: block;
+  margin-top: 8px;
+  color: var(--subtle);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.image-upload-status {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  align-self: end;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--subtle);
+  font-size: 0.76rem;
+}
+
+.image-upload-status button {
+  flex: 0 0 auto;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: var(--text);
+  padding: 4px 0;
+  cursor: pointer;
+}
+
+.image-upload-status button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .field input[type="range"] {

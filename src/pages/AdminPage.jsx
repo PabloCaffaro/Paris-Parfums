@@ -4,7 +4,7 @@ import { FIELD_LIMITS } from "../config/security";
 import Layout from "../components/Layout";
 import PerfumeMedia from "../components/PerfumeMedia";
 import { usePerfumeStore } from "../context/PerfumeStore";
-import { sanitizeImageFile } from "../utils/image";
+import { getDataUrlSizeBytes, sanitizeImageFile } from "../utils/image";
 
 // Convierte un perfume guardado en el formato editable del formulario admin.
 function perfumeToForm(perfume) {
@@ -63,6 +63,9 @@ export default function AdminPage() {
   const [selectedSlug, setSelectedSlug] = useState("");
   const [message, setMessage] = useState("");
   const [form, setForm] = useState(emptyForm);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const hasImage = Boolean(form.imageUrl);
+  const hasUploadedImage = form.imageUrl.startsWith("data:image/");
 
   const selectedPerfume = useMemo(
     () => perfumes.find((perfume) => perfume.slug === selectedSlug),
@@ -80,18 +83,28 @@ export default function AdminPage() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    setIsProcessingImage(true);
+    setMessage("Procesando y optimizando imagen...");
+
     try {
       const safeImageDataUrl = await sanitizeImageFile(file);
       setForm((current) => ({
         ...current,
         imageUrl: safeImageDataUrl
       }));
-      setMessage("Imagen cargada en el formulario.");
+      const imageSizeKb = Math.ceil(getDataUrlSizeBytes(safeImageDataUrl) / 1024);
+      setMessage(`Imagen lista para guardar (${imageSizeKb} KB).`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "No se pudo cargar la imagen.");
     } finally {
+      setIsProcessingImage(false);
       event.target.value = "";
     }
+  }
+
+  function handleRemoveImage() {
+    setForm((current) => ({ ...current, imageUrl: "" }));
+    setMessage("Imagen quitada del formulario. Guarda los cambios para confirmar.");
   }
 
   // Abre un perfume existente dentro del formulario para editarlo.
@@ -255,12 +268,14 @@ export default function AdminPage() {
                 />
               </label>
               <label className="field">
-                <span>Imagen del perfume por URL</span>
+                <span>Imagen por URL HTTPS (opcional)</span>
                 <input
                   name="imageUrl"
-                  value={form.imageUrl}
+                  value={hasUploadedImage ? "" : form.imageUrl}
                   onChange={handleChange}
-                  placeholder="https://... o /ruta/de/imagen"
+                  placeholder={
+                    hasUploadedImage ? "Imagen subida desde el dispositivo" : "https://..."
+                  }
                   maxLength={FIELD_LIMITS.imageUrl}
                   autoComplete="off"
                 />
@@ -271,8 +286,28 @@ export default function AdminPage() {
                   type="file"
                   accept="image/png,image/jpeg,image/webp"
                   onChange={handleImageFileChange}
+                  disabled={isProcessingImage}
                 />
+                <small className="field-hint">
+                  JPG, PNG o WEBP de hasta 10 MB. La imagen se optimiza automaticamente.
+                </small>
               </label>
+              <div className="image-upload-status" aria-live="polite">
+                <span>
+                  {isProcessingImage
+                    ? "Optimizando imagen..."
+                    : hasUploadedImage
+                      ? "Imagen subida lista"
+                      : hasImage
+                        ? "Imagen por URL lista"
+                        : "Sin imagen seleccionada"}
+                </span>
+                {hasImage ? (
+                  <button type="button" onClick={handleRemoveImage} disabled={isProcessingImage}>
+                    Quitar imagen
+                  </button>
+                ) : null}
+              </div>
               <label className="field">
                 <span>Precio</span>
                 <input
@@ -390,8 +425,14 @@ export default function AdminPage() {
                 />
               </label>
               <div className="field-full admin-submit-row">
-                <button className="button light" type="submit" disabled={isLoading}>
-                  {isLoading ? "Guardando..." : selectedPerfume ? "Guardar cambios" : "Crear perfume"}
+                <button
+                  className="button light"
+                  type="submit"
+                  disabled={isLoading || isProcessingImage}
+                >
+                  {isProcessingImage
+                    ? "Procesando imagen..."
+                    : isLoading ? "Guardando..." : selectedPerfume ? "Guardar cambios" : "Crear perfume"}
                 </button>
               </div>
             </form>
