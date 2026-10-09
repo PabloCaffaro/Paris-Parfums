@@ -870,11 +870,56 @@ h1 {
 
 .admin-list-card {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 16px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.02);
+}
+
+.admin-list-summary {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.admin-list-copy {
+  min-width: 0;
+}
+
+.admin-list-copy strong,
+.admin-list-copy span {
+  overflow-wrap: anywhere;
+}
+
+.perfume-image-thumbnail {
+  width: 52px;
+  height: 64px;
+  margin: 0;
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+.perfume-bottle-thumbnail {
+  width: 42px;
+  height: 54px;
+  margin: 5px;
+  border-radius: 9px 9px 6px 6px;
+  box-shadow: none;
+}
+
+.perfume-bottle-thumbnail::before {
+  top: -5px;
+  width: 18px;
+  height: 10px;
+  border-radius: 4px 4px 2px 2px;
+}
+
+.perfume-bottle-thumbnail::after {
+  font-size: 0.48rem;
 }
 
 .admin-list-card strong,
@@ -1022,6 +1067,10 @@ h1 {
   .admin-header,
   .admin-list-card {
     flex-direction: column;
+  }
+
+  .admin-list-card {
+    align-items: stretch;
   }
 
   .admin-actions,

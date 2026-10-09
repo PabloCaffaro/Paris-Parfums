@@ -38,6 +38,25 @@ Antes de entregar un cambio, ejecutar como mínimo `npm test` y `npm run build`.
 
 Flujo esperado: trabajar y validar en `Pablo`, mergear a `desarrollo` y finalmente a `main`. Al terminar una publicación, volver localmente a `Pablo`.
 
+## Estado más reciente y traspaso
+
+- El repositorio activo debe ubicarse en `C:\Users\pablo\Documents\CodexWorkspaces\Paris parfums`.
+- La copia anterior dentro de OneDrive queda únicamente como referencia de migración y no debe seguir usándose para desarrollar.
+- La rama de trabajo es `Pablo` y contiene cambios locales todavía sin commit.
+- Antes de continuar, verificar que la copia nueva conserve `.git`, la rama `Pablo`, los cambios sin confirmar y cualquier archivo no rastreado.
+- La última verificación conocida terminó correctamente con 40 tests aprobados y `npm run build` exitoso.
+- El panel administrativo ahora muestra una miniatura por perfume. Cuando no hay imagen, utiliza el placeholder de botella.
+- Al seleccionar una imagen desde un teléfono o computadora, se muestra una vista previa inmediata. La conversión y compresión a WEBP se ejecutan al pulsar `Guardar cambios` o `Crear perfume`, con estado visible mientras se procesa.
+- La selección de archivos valida JPG, PNG o WEBP y rechaza archivos mayores de 10 MB antes del procesamiento pesado.
+- Los archivos locales modificados por este último trabajo son:
+  - `src/pages/AdminPage.jsx`;
+  - `src/components/PerfumeMedia.jsx`;
+  - `src/components/PerfumeVisual.jsx`;
+  - `src/styles/app.css`;
+  - `src/utils/image.js`;
+  - `tests/utils.test.js`.
+- Próxima decisión de producto: conservar este frontend como alternativa estable y crear otra rama para probar un frontend nuevo con los mismos datos y contratos. Elegir el frontend antes de integrar la persistencia remota.
+
 ## Rutas
 
 - `/`: portada, carrusel de destacados, filtros y catálogo.
@@ -96,6 +115,7 @@ Piezas importantes:
 
 ## Tests
 
+- Estado más reciente conocido: 40 tests aprobados.
 - Los tests viven en `tests/` y usan el runner incluido en Node.js.
 - Priorizar comportamiento público; no probar detalles internos innecesarios.
 - Para storage usar `MemoryStorage`, nunca el storage real del desarrollador.
@@ -110,6 +130,8 @@ Piezas importantes:
 - Los cambios del catálogo son por navegador y no se comparten entre dispositivos.
 - Las imágenes data URL pueden consumir la cuota de `localStorage`.
 - El siguiente salto arquitectónico esperado es reemplazar `localPerfumeRepository` por un repositorio HTTP manteniendo la interfaz del servicio.
+- Antes de ese salto se comparará el frontend actual con una alternativa desarrollada en otra rama.
+- La futura solución debería separar base de datos, almacenamiento de imágenes y autenticación administrativa segura.
 
 ## Checklist para agentes
 
@@ -121,3 +143,4 @@ Piezas importantes:
 6. Agregar o actualizar tests cuando cambie lógica existente.
 7. Ejecutar tests y build.
 8. No hacer commit, push o merge salvo pedido explícito del usuario.
+9. No volver a usar la copia de OneDrive como workspace activo una vez verificada la migración a `CodexWorkspaces`.

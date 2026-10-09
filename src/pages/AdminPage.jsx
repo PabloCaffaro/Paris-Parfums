@@ -1,10 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FIELD_LIMITS } from "../config/security";
 import Layout from "../components/Layout";
 import PerfumeMedia from "../components/PerfumeMedia";
 import { usePerfumeStore } from "../context/PerfumeStore";
-import { getDataUrlSizeBytes, sanitizeImageFile } from "../utils/image";
+import {
+  getDataUrlSizeBytes,
+  sanitizeImageFile,
+  validateImageFile
+} from "../utils/image";
 
 // Convierte un perfume guardado en el formato editable del formulario admin.
 function perfumeToForm(perfume) {
@@ -64,8 +68,20 @@ export default function AdminPage() {
   const [message, setMessage] = useState("");
   const [form, setForm] = useState(emptyForm);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
-  const hasImage = Boolean(form.imageUrl);
+  const [selectedImageFile, setSelectedImageFile] = useState(null);
+  const [selectedImagePreviewUrl, setSelectedImagePreviewUrl] = useState("");
+  const previewImageUrl = selectedImagePreviewUrl || form.imageUrl;
+  const hasImage = Boolean(previewImageUrl);
   const hasUploadedImage = form.imageUrl.startsWith("data:image/");
+
+  useEffect(
+    () => () => {
+      if (selectedImagePreviewUrl) {
+        URL.revokeObjectURL(selectedImagePreviewUrl);
+      }
+    },
+    [selectedImagePreviewUrl]
+  );
 
   const selectedPerfume = useMemo(
     () => perfumes.find((perfume) => perfume.slug === selectedSlug),
@@ -75,34 +91,34 @@ export default function AdminPage() {
   // Sincroniza un input simple del formulario con el estado local.
   function handleChange(event) {
     const { name, value } = event.target;
+    if (name === "imageUrl" && selectedImageFile) {
+      setSelectedImageFile(null);
+      setSelectedImagePreviewUrl("");
+    }
     setForm((current) => ({ ...current, [name]: value }));
   }
 
-  // Carga, sanea y guarda una imagen seleccionada localmente para el perfume.
-  async function handleImageFileChange(event) {
+  // Prepara una vista previa inmediata; la optimizacion se realiza al guardar.
+  function handleImageFileChange(event) {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    setIsProcessingImage(true);
-    setMessage("Procesando y optimizando imagen...");
-
     try {
-      const safeImageDataUrl = await sanitizeImageFile(file);
-      setForm((current) => ({
-        ...current,
-        imageUrl: safeImageDataUrl
-      }));
-      const imageSizeKb = Math.ceil(getDataUrlSizeBytes(safeImageDataUrl) / 1024);
-      setMessage(`Imagen lista para guardar (${imageSizeKb} KB).`);
+      validateImageFile(file);
+      setSelectedImageFile(file);
+      setSelectedImagePreviewUrl(URL.createObjectURL(file));
+      setForm((current) => ({ ...current, imageUrl: "" }));
+      setMessage("Foto seleccionada. Se optimizara al guardar los cambios.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "No se pudo cargar la imagen.");
     } finally {
-      setIsProcessingImage(false);
       event.target.value = "";
     }
   }
 
   function handleRemoveImage() {
+    setSelectedImageFile(null);
+    setSelectedImagePreviewUrl("");
     setForm((current) => ({ ...current, imageUrl: "" }));
     setMessage("Imagen quitada del formulario. Guarda los cambios para confirmar.");
   }
@@ -112,6 +128,8 @@ export default function AdminPage() {
     const perfume = perfumes.find((item) => item.slug === slug);
     if (!perfume) return;
 
+    setSelectedImageFile(null);
+    setSelectedImagePreviewUrl("");
     setSelectedSlug(slug);
     setForm(perfumeToForm(perfume));
     setMessage("Editando perfume seleccionado.");
@@ -119,6 +137,8 @@ export default function AdminPage() {
 
   // Limpia el formulario para empezar a crear un perfume nuevo.
   function handleNew() {
+    setSelectedImageFile(null);
+    setSelectedImagePreviewUrl("");
     setSelectedSlug("");
     setForm(emptyForm);
     setMessage("Formulario listo para crear un perfume nuevo.");
@@ -129,20 +149,49 @@ export default function AdminPage() {
     event.preventDefault();
 
     try {
+      let formToSave = form;
+
+      if (selectedImageFile) {
+        setIsProcessingImage(true);
+        setMessage("Optimizando imagen y guardando...");
+        const safeImageDataUrl = await sanitizeImageFile(selectedImageFile);
+        formToSave = { ...form, imageUrl: safeImageDataUrl };
+      }
+
       if (selectedPerfume) {
-        const updated = await updatePerfume(selectedPerfume.slug, form);
+        const updated = await updatePerfume(selectedPerfume.slug, formToSave);
+        setSelectedImageFile(null);
+        setSelectedImagePreviewUrl("");
         setSelectedSlug(updated.slug);
         setForm(perfumeToForm(updated));
-        setMessage("Perfume actualizado.");
+        const imageSizeKb = selectedImageFile
+          ? Math.ceil(getDataUrlSizeBytes(updated.imageUrl) / 1024)
+          : 0;
+        setMessage(
+          imageSizeKb
+            ? `Perfume actualizado. Imagen optimizada a ${imageSizeKb} KB.`
+            : "Perfume actualizado."
+        );
         return;
       }
 
-      const created = await addPerfume(form);
+      const created = await addPerfume(formToSave);
+      setSelectedImageFile(null);
+      setSelectedImagePreviewUrl("");
       setSelectedSlug(created.slug);
       setForm(perfumeToForm(created));
-      setMessage("Perfume creado.");
+      const imageSizeKb = selectedImageFile
+        ? Math.ceil(getDataUrlSizeBytes(created.imageUrl) / 1024)
+        : 0;
+      setMessage(
+        imageSizeKb
+          ? `Perfume creado. Imagen optimizada a ${imageSizeKb} KB.`
+          : "Perfume creado."
+      );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "No se pudo guardar el perfume.");
+    } finally {
+      setIsProcessingImage(false);
     }
   }
 
@@ -163,6 +212,8 @@ export default function AdminPage() {
   async function handleReset() {
     try {
       await resetPerfumes();
+      setSelectedImageFile(null);
+      setSelectedImagePreviewUrl("");
       setSelectedSlug("");
       setForm(emptyForm);
       setMessage("Catalogo restaurado.");
@@ -213,9 +264,12 @@ export default function AdminPage() {
             <div className="admin-list-items">
               {perfumes.map((perfume) => (
                 <div className="admin-list-card" key={perfume.slug}>
-                  <div>
-                    <strong>{perfume.name}</strong>
-                    <span>{perfume.family}</span>
+                  <div className="admin-list-summary">
+                    <PerfumeMedia perfume={perfume} size="thumbnail" />
+                    <div className="admin-list-copy">
+                      <strong>{perfume.name}</strong>
+                      <span>{perfume.family}</span>
+                    </div>
                   </div>
                   <div className="admin-list-buttons">
                     <button type="button" onClick={() => handleEdit(perfume.slug)}>
@@ -271,10 +325,14 @@ export default function AdminPage() {
                 <span>Imagen por URL HTTPS (opcional)</span>
                 <input
                   name="imageUrl"
-                  value={hasUploadedImage ? "" : form.imageUrl}
+                  value={selectedImageFile || hasUploadedImage ? "" : form.imageUrl}
                   onChange={handleChange}
                   placeholder={
-                    hasUploadedImage ? "Imagen subida desde el dispositivo" : "https://..."
+                    selectedImageFile
+                      ? "Foto seleccionada desde el dispositivo"
+                      : hasUploadedImage
+                        ? "Imagen subida desde el dispositivo"
+                        : "https://..."
                   }
                   maxLength={FIELD_LIMITS.imageUrl}
                   autoComplete="off"
@@ -295,8 +353,10 @@ export default function AdminPage() {
               <div className="image-upload-status" aria-live="polite">
                 <span>
                   {isProcessingImage
-                    ? "Optimizando imagen..."
-                    : hasUploadedImage
+                    ? "Optimizando imagen y guardando..."
+                    : selectedImageFile
+                      ? "Foto seleccionada · se procesara al guardar"
+                      : hasUploadedImage
                       ? "Imagen subida lista"
                       : hasImage
                         ? "Imagen por URL lista"
@@ -431,7 +491,7 @@ export default function AdminPage() {
                   disabled={isLoading || isProcessingImage}
                 >
                   {isProcessingImage
-                    ? "Procesando imagen..."
+                    ? "Optimizando y guardando..."
                     : isLoading ? "Guardando..." : selectedPerfume ? "Guardar cambios" : "Crear perfume"}
                 </button>
               </div>
@@ -440,7 +500,7 @@ export default function AdminPage() {
               <p className="eyebrow">Vista previa</p>
               <div className="admin-preview-card">
                 <PerfumeMedia
-                  perfume={{ name: form.name || "PARIS", imageUrl: form.imageUrl }}
+                  perfume={{ name: form.name || "PARIS", imageUrl: previewImageUrl }}
                 />
               </div>
             </div>

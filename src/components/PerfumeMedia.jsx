@@ -12,13 +12,17 @@ export default function PerfumeMedia({ perfume, size = "default" }) {
 
   if (imageUrl && !imageFailed) {
     const className =
-      size === "large" ? "perfume-image perfume-image-large" : "perfume-image";
+      size === "large"
+        ? "perfume-image perfume-image-large"
+        : size === "thumbnail"
+          ? "perfume-image perfume-image-thumbnail"
+          : "perfume-image";
 
     return (
       <img
         className={className}
         src={imageUrl}
-        alt={perfume.name}
+        alt={size === "thumbnail" ? `Miniatura de ${perfume.name}` : perfume.name}
         loading={size === "large" ? "eager" : "lazy"}
         decoding="async"
         onError={() => setImageFailed(true)}

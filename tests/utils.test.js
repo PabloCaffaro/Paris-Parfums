@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { MAX_IMAGE_STORED_SIZE_BYTES } from "../src/config/security.js";
-import { getDataUrlSizeBytes, validateImageUrl } from "../src/utils/image.js";
+import {
+  MAX_IMAGE_STORED_SIZE_BYTES,
+  MAX_IMAGE_UPLOAD_SIZE_BYTES
+} from "../src/config/security.js";
+import {
+  getDataUrlSizeBytes,
+  validateImageFile,
+  validateImageUrl
+} from "../src/utils/image.js";
 import { slugify } from "../src/utils/slugify.js";
 import { formatPrice, normalizeText } from "../src/utils/text.js";
 
@@ -64,4 +71,29 @@ describe("validateImageUrl", () => {
       assert.throws(() => validateImageUrl(url), /https/i);
     });
   }
+});
+
+describe("validateImageFile", () => {
+  it("acepta archivos de imagen permitidos", () => {
+    const file = { type: "image/jpeg", size: 1024 };
+    assert.equal(validateImageFile(file), file);
+  });
+
+  it("rechaza archivos sin un formato de imagen permitido", () => {
+    assert.throws(
+      () => validateImageFile({ type: "application/pdf", size: 1024 }),
+      /JPG, PNG o WEBP/i
+    );
+  });
+
+  it("rechaza imagenes que superan 10 MB", () => {
+    assert.throws(
+      () =>
+        validateImageFile({
+          type: "image/png",
+          size: MAX_IMAGE_UPLOAD_SIZE_BYTES + 1
+        }),
+      /10 MB/i
+    );
+  });
 });

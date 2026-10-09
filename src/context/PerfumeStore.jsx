@@ -9,7 +9,9 @@ import {
 } from "react";
 import { ADMIN_INACTIVITY_TIMEOUT_MS } from "../config/security";
 import { defaultPerfumes } from "../data/perfumes";
+import { isSupabaseConfigured } from "../lib/supabaseClient";
 import { localPerfumeRepository } from "../repositories/localPerfumeRepository";
+import { supabasePerfumeRepository } from "../repositories/supabasePerfumeRepository";
 import { createPerfumeService } from "../services/perfumeService";
 import { ADMIN_LOGOUT_REASON_KEY } from "../utils/adminSecurity";
 
@@ -17,7 +19,9 @@ const SESSION_KEY = "paris-parfums-admin-session";
 const LAST_ACTIVITY_KEY = "paris-parfums-admin-last-activity";
 
 const PerfumeStoreContext = createContext(null);
-const perfumeService = createPerfumeService(localPerfumeRepository);
+const perfumeService = createPerfumeService(
+  isSupabaseConfigured ? supabasePerfumeRepository : localPerfumeRepository
+);
 
 // Provee el catalogo, la sesion admin y las operaciones de gestion a toda la app.
 export function PerfumeStoreProvider({ children }) {
@@ -135,6 +139,7 @@ export function PerfumeStoreProvider({ children }) {
       isAdminAuthenticated,
       isLoading,
       error,
+      isRemotePersistence: isSupabaseConfigured,
       getPerfumeBySlug: (slug) => perfumes.find((perfume) => perfume.slug === slug),
       addPerfume: (input) =>
         runPerfumeOperation(async () => {

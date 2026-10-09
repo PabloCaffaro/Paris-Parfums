@@ -48,6 +48,23 @@ export function getDataUrlSizeBytes(dataUrl) {
   return Math.max(0, Math.floor((base64.length * 3) / 4) - padding);
 }
 
+// Valida el archivo antes de iniciar el procesamiento pesado en canvas.
+export function validateImageFile(file) {
+  if (!file) {
+    throw new Error("No se selecciono ninguna imagen.");
+  }
+
+  if (!ALLOWED_IMAGE_MIME_TYPES.includes(file.type)) {
+    throw new Error("Solo se permiten imagenes JPG, PNG o WEBP.");
+  }
+
+  if (file.size > MAX_IMAGE_UPLOAD_SIZE_BYTES) {
+    throw new Error("La imagen supera el maximo permitido de 10 MB.");
+  }
+
+  return file;
+}
+
 // Lee un archivo local y lo convierte a data URL para procesarlo en el navegador.
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -85,17 +102,7 @@ function renderImage(image, width, height) {
 
 // Sanea una imagen subida, limita tamaño y la reexporta en un formato permitido.
 export async function sanitizeImageFile(file) {
-  if (!file) {
-    throw new Error("No se selecciono ninguna imagen.");
-  }
-
-  if (!ALLOWED_IMAGE_MIME_TYPES.includes(file.type)) {
-    throw new Error("Solo se permiten imagenes JPG, PNG o WEBP.");
-  }
-
-  if (file.size > MAX_IMAGE_UPLOAD_SIZE_BYTES) {
-    throw new Error("La imagen supera el maximo permitido de 10 MB.");
-  }
+  validateImageFile(file);
 
   const dataUrl = await readFileAsDataUrl(file);
   const image = await loadImage(dataUrl);
