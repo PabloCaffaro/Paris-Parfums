@@ -4,7 +4,7 @@ import Layout from "../components/Layout";
 import PerfumeMedia from "../components/PerfumeMedia";
 import { usePerfumeStore } from "../context/PerfumeStore";
 import { useRevealOnScroll } from "../hooks/useRevealOnScroll";
-import { formatPrice } from "../utils/text";
+import { formatStartingPrice } from "../utils/text";
 
 // Muestra la ficha detallada de un perfume a partir de su slug en la URL.
 export default function PerfumePage() {
@@ -81,7 +81,7 @@ export default function PerfumePage() {
           <div className="detail-meta-grid">
             <div className="detail-meta-card">
               <span className="detail-meta-label">Precio</span>
-              <strong>{formatPrice(perfume.price)}</strong>
+              <strong>{formatStartingPrice(perfume)}</strong>
             </div>
             <div className="detail-meta-card">
               <span className="detail-meta-label">Presentacion</span>

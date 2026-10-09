@@ -1,6 +1,7 @@
 import { FIELD_LIMITS } from "../config/security.js";
 import { validateImageUrl } from "./image.js";
 import { slugify } from "./slugify.js";
+import { createDefaultVariants, normalizeConfiguredPrice, normalizeVariants } from "./perfumeVariants.js";
 
 // Limpia texto libre, recorta longitud y remueve caracteres no deseados.
 function sanitizeText(value, maxLength) {
@@ -28,10 +29,7 @@ export function validateAndNormalizePerfumeInput(input) {
     throw new Error("El nombre del perfume es obligatorio.");
   }
 
-  const price = Number(input.price);
-  if (!Number.isFinite(price) || price < 0 || price > 10000) {
-    throw new Error("El precio debe ser un numero valido entre 0 y 10000.");
-  }
+  const price = normalizeConfiguredPrice(input.price);
 
   const notes = sanitizeList(input.notes);
   if (notes.length === 0) {
@@ -61,17 +59,26 @@ export function validateAndNormalizePerfumeInput(input) {
     throw new Error("Completá todas las descripciones del perfume.");
   }
 
+  const slug = slugify(sanitizeText(input.slug || name, FIELD_LIMITS.slug) || name);
+  const volume = sanitizeText(input.volume, FIELD_LIMITS.volume);
+  const product = { slug, price, volume };
+  const variants = normalizeVariants(
+    input.variants === undefined ? createDefaultVariants(product) : input.variants,
+    product
+  );
+
   return {
-    slug: slugify(sanitizeText(input.slug || name, FIELD_LIMITS.slug) || name),
+    slug,
     name,
     imageUrl: validateImageUrl(String(input.imageUrl ?? "")),
-    price: Math.round(price),
+    price,
     family: sanitizeText(input.family, FIELD_LIMITS.family),
     shortDescription,
     heroDescription,
     detailedDescription,
     narrative,
-    volume: sanitizeText(input.volume, FIELD_LIMITS.volume),
+    volume,
+    variants,
     concentration: sanitizeText(input.concentration, FIELD_LIMITS.concentration),
     badge: sanitizeText(input.badge, FIELD_LIMITS.badge),
     notes,

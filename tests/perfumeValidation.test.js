@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { validateAndNormalizePerfumeInput } from "../src/utils/perfumeValidation.js";
+import { createDefaultVariants } from "../src/utils/perfumeVariants.js";
 import { createValidPerfumeInput } from "./helpers.js";
 
 describe("validateAndNormalizePerfumeInput", () => {
@@ -67,6 +68,20 @@ describe("validateAndNormalizePerfumeInput", () => {
           createValidPerfumeInput({ detailedDescription: "" })
         ),
       /descripciones/i
+    );
+  });
+
+  it("requiere volumen cuando el frasco completo esta habilitado", () => {
+    assert.throws(
+      () => validateAndNormalizePerfumeInput(createValidPerfumeInput({
+        volume: "sin medida",
+        variants: createDefaultVariants({ slug: "midnight-test", price: 145, volume: "100 ml" })
+      })),
+      /volumen/i
+    );
+    assert.throws(
+      () => validateAndNormalizePerfumeInput(createValidPerfumeInput({ variants: null })),
+      /cuatro/i
     );
   });
 

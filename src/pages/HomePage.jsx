@@ -6,6 +6,7 @@ import PerfumeCard from "../components/PerfumeCard";
 import PerfumeMedia from "../components/PerfumeMedia";
 import { usePerfumeStore } from "../context/PerfumeStore";
 import { useRevealOnScroll } from "../hooks/useRevealOnScroll";
+import { getMinimumAvailablePrice } from "../utils/perfumeVariants";
 import { formatPrice, normalizeText } from "../utils/text";
 
 // Renderiza la portada con destacado, buscador, filtros y catalogo interactivo.
@@ -44,7 +45,7 @@ export default function HomePage() {
     [perfumes]
   );
   const maxAvailablePrice = useMemo(
-    () => Math.max(...perfumes.map((perfume) => Number(perfume.price) || 0), 0),
+    () => Math.max(...perfumes.map(getMinimumAvailablePrice).filter((price) => price !== null), 0),
     [perfumes]
   );
   const sliderMaxPrice = useMemo(() => {
@@ -91,7 +92,10 @@ export default function HomePage() {
   const filteredBySelectors = useMemo(
     () =>
       perfumes.filter((perfume) => {
-        const matchesPrice = (Number(perfume.price) || 0) <= effectiveMaxPrice;
+        const minimumPrice = getMinimumAvailablePrice(perfume);
+        const matchesPrice = minimumPrice === null
+          ? effectiveMaxPrice === sliderMaxPrice
+          : minimumPrice <= effectiveMaxPrice;
         const matchesOccasion =
           selectedOccasion === "all" || perfume.occasions.includes(selectedOccasion);
         const matchesFamily =
@@ -115,7 +119,8 @@ export default function HomePage() {
       selectedConcentration,
       selectedFamily,
       selectedIntensity,
-      selectedOccasion
+      selectedOccasion,
+      sliderMaxPrice
     ]
   );
 

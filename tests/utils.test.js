@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { MAX_IMAGE_STORED_SIZE_BYTES } from "../src/config/security.js";
 import { getDataUrlSizeBytes, validateImageUrl } from "../src/utils/image.js";
 import { slugify } from "../src/utils/slugify.js";
-import { formatPrice, normalizeText } from "../src/utils/text.js";
+import { formatPrice, formatStartingPrice, normalizeText } from "../src/utils/text.js";
 
 describe("slugify", () => {
   it("genera slugs estables sin acentos ni separadores duplicados", () => {
@@ -24,6 +24,24 @@ describe("normalizeText", () => {
 describe("formatPrice", () => {
   it("formatea precios enteros en dolares para Uruguay", () => {
     assert.equal(formatPrice(145).replace(/\s/g, " "), "US$ 145");
+  });
+
+  it("no muestra un precio ausente como cero", () => {
+    assert.doesNotMatch(formatPrice(null), /US\$\s*0/);
+    assert.doesNotMatch(formatPrice(undefined), /US\$\s*0/);
+    assert.doesNotMatch(formatPrice("  "), /US\$\s*0/);
+    assert.doesNotMatch(formatPrice(0), /US\$\s*0/);
+  });
+
+  it("muestra el menor precio disponible con la leyenda Desde", () => {
+    const variants = [
+      { price: 145, available: false },
+      { price: 52, available: true },
+      { price: 28, available: true },
+      { price: 15, available: false }
+    ];
+    assert.match(formatStartingPrice({ variants }), /Desde US\$\s*28/);
+    assert.equal(formatStartingPrice({ variants: [] }), "Sin variantes disponibles");
   });
 });
 

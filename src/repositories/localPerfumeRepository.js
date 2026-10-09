@@ -1,4 +1,10 @@
 import { defaultPerfumes } from "../data/perfumes.js";
+import {
+  createDefaultVariants,
+  normalizeConfiguredPrice,
+  normalizeVariants,
+  updateFullVariant
+} from "../utils/perfumeVariants.js";
 
 const PERFUMES_KEY = "paris-parfums-perfumes";
 
@@ -21,16 +27,29 @@ function hydratePerfume(perfume) {
         .map((item) => item.trim())
         .filter(Boolean);
 
-  return {
+  const storedPrice = perfume.price;
+  let price = null;
+  try {
+    price = normalizeConfiguredPrice(storedPrice);
+  } catch {
+    // Conserva el registro aun si el precio antiguo ya no cumple las reglas de venta.
+  }
+
+  const hydrated = {
     ...fallback,
     ...perfume,
     imageUrl: perfume.imageUrl ?? "",
-    price: Number.isFinite(Number(perfume.price))
-      ? Number(perfume.price)
-      : Number(fallback.price) || 0,
+    price,
+    volume: perfume.volume ?? "",
     notes,
     occasions
   };
+
+  // Los registros anteriores no tienen variantes; se derivan al leer sin reescribir storage.
+  if (Array.isArray(perfume.variants)) {
+    return { ...hydrated, variants: perfume.variants.map((variant) => ({ ...variant })) };
+  }
+  return { ...hydrated, variants: createDefaultVariants(hydrated) };
 }
 
 function cloneDefaults() {
@@ -75,15 +94,32 @@ export const localPerfumeRepository = {
   },
 
   create(perfume) {
-    writePerfumes([...readPerfumes(), perfume]);
-    return perfume;
+    const created = hydratePerfume(perfume);
+    writePerfumes([...readPerfumes(), created]);
+    return created;
   },
 
   update(slug, perfume) {
-    writePerfumes(
-      readPerfumes().map((current) => (current.slug === slug ? perfume : current))
-    );
-    return perfume;
+    const perfumes = readPerfumes();
+    const current = perfumes.find((item) => item.slug === slug);
+    if (!current) throw new Error("El perfume que queres editar no existe.");
+
+    const merged = { ...current, ...perfume };
+    if (perfume.variants === undefined) {
+      merged.variants = updateFullVariant(current.variants, merged);
+    } else {
+      const full = Array.isArray(perfume.variants)
+        ? perfume.variants.find((variant) => variant?.presentation === "full")
+        : null;
+      if (full && !Object.hasOwn(perfume, "price")) merged.price = full.price;
+      if (full && !Object.hasOwn(perfume, "volume")) {
+        merged.volume = full.volumeMl === null ? "" : `${full.volumeMl} ml`;
+      }
+    }
+    merged.variants = normalizeVariants(merged.variants, merged);
+    const updated = hydratePerfume(merged);
+    writePerfumes(perfumes.map((item) => (item.slug === slug ? updated : item)));
+    return updated;
   },
 
   remove(slug) {

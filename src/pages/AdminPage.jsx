@@ -5,6 +5,12 @@ import Layout from "../components/Layout";
 import PerfumeMedia from "../components/PerfumeMedia";
 import { usePerfumeStore } from "../context/PerfumeStore";
 import { getDataUrlSizeBytes, sanitizeImageFile } from "../utils/image";
+import { createDefaultVariants, updateFullVariant } from "../utils/perfumeVariants";
+
+function emptyVariants() {
+  return createDefaultVariants({ slug: "draft", price: null, volume: "" })
+    .map((variant) => ({ ...variant, id: "" }));
+}
 
 // Convierte un perfume guardado en el formato editable del formulario admin.
 function perfumeToForm(perfume) {
@@ -18,7 +24,10 @@ function perfumeToForm(perfume) {
     heroDescription: perfume.heroDescription,
     detailedDescription: perfume.detailedDescription,
     narrative: perfume.narrative,
-    volume: perfume.volume,
+    volume: perfume.volume ?? "",
+    variants: Array.isArray(perfume.variants) && perfume.variants.length === 4
+      ? perfume.variants.map((variant) => ({ ...variant }))
+      : emptyVariants(),
     concentration: perfume.concentration,
     badge: perfume.badge,
     notes: perfume.notes.join(", "),
@@ -28,24 +37,27 @@ function perfumeToForm(perfume) {
   };
 }
 
-const emptyForm = {
-  slug: "",
-  name: "",
-  imageUrl: "",
-  price: "",
-  family: "",
-  shortDescription: "",
-  heroDescription: "",
-  detailedDescription: "",
-  narrative: "",
-  volume: "",
-  concentration: "",
-  badge: "",
-  notes: "",
-  occasions: "",
-  intensity: "",
-  duration: ""
-};
+function createEmptyForm() {
+  return {
+    slug: "",
+    name: "",
+    imageUrl: "",
+    price: "",
+    family: "",
+    shortDescription: "",
+    heroDescription: "",
+    detailedDescription: "",
+    narrative: "",
+    volume: "",
+    variants: emptyVariants(),
+    concentration: "",
+    badge: "",
+    notes: "",
+    occasions: "",
+    intensity: "",
+    duration: ""
+  };
+}
 
 // Muestra el panel privado para crear, editar y borrar perfumes del catalogo.
 export default function AdminPage() {
@@ -62,7 +74,7 @@ export default function AdminPage() {
   } = usePerfumeStore();
   const [selectedSlug, setSelectedSlug] = useState("");
   const [message, setMessage] = useState("");
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState(createEmptyForm);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const hasImage = Boolean(form.imageUrl);
   const hasUploadedImage = form.imageUrl.startsWith("data:image/");
@@ -76,6 +88,15 @@ export default function AdminPage() {
   function handleChange(event) {
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
+  }
+
+  function handleVariantChange(index, changes) {
+    setForm((current) => ({
+      ...current,
+      variants: current.variants.map((variant, variantIndex) =>
+        variantIndex === index ? { ...variant, ...changes } : variant
+      )
+    }));
   }
 
   // Carga, sanea y guarda una imagen seleccionada localmente para el perfume.
@@ -120,7 +141,7 @@ export default function AdminPage() {
   // Limpia el formulario para empezar a crear un perfume nuevo.
   function handleNew() {
     setSelectedSlug("");
-    setForm(emptyForm);
+    setForm(createEmptyForm());
     setMessage("Formulario listo para crear un perfume nuevo.");
   }
 
@@ -129,15 +150,24 @@ export default function AdminPage() {
     event.preventDefault();
 
     try {
+      const fullVariant = form.variants.find((variant) => variant.presentation === "full");
+      const input = {
+        ...form,
+        price: fullVariant?.price ?? null,
+        variants: updateFullVariant(form.variants, {
+          price: fullVariant?.price ?? null,
+          volume: form.volume
+        })
+      };
       if (selectedPerfume) {
-        const updated = await updatePerfume(selectedPerfume.slug, form);
+        const updated = await updatePerfume(selectedPerfume.slug, input);
         setSelectedSlug(updated.slug);
         setForm(perfumeToForm(updated));
         setMessage("Perfume actualizado.");
         return;
       }
 
-      const created = await addPerfume(form);
+      const created = await addPerfume(input);
       setSelectedSlug(created.slug);
       setForm(perfumeToForm(created));
       setMessage("Perfume creado.");
@@ -164,7 +194,7 @@ export default function AdminPage() {
     try {
       await resetPerfumes();
       setSelectedSlug("");
-      setForm(emptyForm);
+      setForm(createEmptyForm());
       setMessage("Catalogo restaurado.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "No se pudo restaurar el catalogo.");
@@ -308,28 +338,56 @@ export default function AdminPage() {
                   </button>
                 ) : null}
               </div>
-              <label className="field">
-                <span>Precio</span>
-                <input
-                  name="price"
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={form.price}
-                  onChange={handleChange}
-                  placeholder="120"
-                  inputMode="numeric"
-                />
-              </label>
-              <label className="field">
-                <span>Presentacion</span>
-                <input
-                  name="volume"
-                  value={form.volume}
-                  onChange={handleChange}
-                  maxLength={FIELD_LIMITS.volume}
-                />
-              </label>
+              <fieldset className="variant-editor field-full">
+                <legend>Presentaciones y precios</legend>
+                <p className="field-hint">
+                  Habilita al menos una presentacion con precio mayor que cero.
+                  El frasco puede quedar sin precio ni volumen cuando no se vende.
+                </p>
+                {form.variants.map((variant, index) => (
+                  <div className="variant-row" key={`${variant.presentation}-${variant.volumeMl ?? "full"}`}>
+                    <div className="variant-name">
+                      <strong>{variant.presentation === "full" ? "Frasco completo" : `Decant ${variant.volumeMl} ml`}</strong>
+                      {variant.presentation === "full" ? (
+                        <label className="field">
+                          <span>Volumen del frasco</span>
+                          <input
+                            name="volume"
+                            value={form.volume}
+                            onChange={handleChange}
+                            placeholder="100 ml"
+                            maxLength={FIELD_LIMITS.volume}
+                          />
+                        </label>
+                      ) : <span className="variant-volume">{variant.volumeMl} ml</span>}
+                    </div>
+                    <label className="field">
+                      <span>Precio (USD)</span>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={variant.price ?? ""}
+                        onChange={(event) => handleVariantChange(index, {
+                          price: event.target.value === "" ? null : event.target.value
+                        })}
+                        placeholder="Sin precio"
+                        inputMode="numeric"
+                      />
+                    </label>
+                    <label className="variant-toggle">
+                      <input
+                        type="checkbox"
+                        checked={variant.available}
+                        onChange={(event) => handleVariantChange(index, {
+                          available: event.target.checked
+                        })}
+                      />
+                      Disponible
+                    </label>
+                  </div>
+                ))}
+              </fieldset>
               <label className="field">
                 <span>Concentracion</span>
                 <input

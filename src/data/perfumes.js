@@ -1,3 +1,14 @@
+import { createDefaultVariants } from "../utils/perfumeVariants.js";
+
+const demoDecantPrices = {
+  "midnight-sillage": [52, 28, 15],
+  "velours-blanc": [43, 23, 12],
+  "rue-noire": [63, 33, 17],
+  "atelier-fume": [49, 26, 14],
+  "marais-gris": [36, 19, 10],
+  "velvet-accord": [46, 25, 13]
+};
+
 export const defaultPerfumes = [
   {
     slug: "midnight-sillage",
@@ -131,4 +142,13 @@ export const defaultPerfumes = [
     intensity: "Media",
     duration: "7 a 8 horas"
   }
-];
+].map((perfume) => ({
+  ...perfume,
+  variants: createDefaultVariants(perfume).map((variant, index) =>
+    index === 0 ? variant : {
+      ...variant,
+      price: demoDecantPrices[perfume.slug][index - 1],
+      available: true
+    }
+  )
+}));
